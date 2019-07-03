@@ -11,6 +11,8 @@
 
 datafileonepath="datafileone$$"
 datafiletwopath="datafiletwo$$"
+numcols=0
+numrows=0
 
 function perror(){
   # NAME
@@ -52,7 +54,7 @@ function perror(){
 }
 
 checkArgCount() {
-    [[ $2 -gt $1 ]] && perror "invalid number of arguments"
+    [[ $2 -ne $1 ]] && perror "invalid number of arguments"
 }
 
 copyInputToTempFile() {
@@ -78,26 +80,25 @@ removeDataFiles() {
     [[ -f $datafiletwopath ]] && rm $datafiletwopath
 }
 
-dims() {
-    datafileonepath="datafile$$"
-    checkArgCount 1 "$#"
-    copyInputToTempFile "$#" "$1"
-    checkFileIsValid "$#"
-    
-    numcols=0
-    read -r firstline<"$datafileonepath"
+getDimensions() {    
+    read -r firstline<"$1"
     for num in $firstline; do
 	numcols=$((numcols + 1))
     done
     
-    numrows=0
     while read -r row; do
 	numrows=$((numrows + 1))
-    done < "$datafileonepath"
+    done < "$1"
+}
+
+dims() {
+    checkArgCount 1 "$#"
+    copyInputToTempFile "$#" "$1"
+    checkFileIsValid "$#"
+    
+    getDimensions $datafileonepath
 
     echo "$numrows $numcols"
-
-    removeDataFiles
 }
 
 # https://www.thelinuxrain.com/articles/transposing-rows-and-columns-3-methods
@@ -113,7 +114,6 @@ transpose() {
 	cut -f${index} "$datafileonepath" | paste -s
 	index=$((index + 1))
     done
-    removeDataFiles
 }
 
 mean() {
@@ -141,10 +141,31 @@ mean() {
     results="${results::-2}"
     echo -e "$results"
 
-    removeDataFiles
+}
+
+add() {
+    checkArgCount 2 "$#"
+    copyInputToTempFile "$#" "$1" "$2"
+    checkFileIsValid "$#"
+    
+    m1numrows=0
+    m1numcols=0
+    m2numrows=0
+    m2numcols=0
+    
+    getDimensions $datafileonepath
+    m1numrows=$numrows
+    m1numcols=$numcols
+
+    getDimensions $datafiletwopath
+    m2numrows=$numrows
+    m2numcols=$numcols
+
+    [[ $m1numrows -ne $m2numrows ]] && perror "invalid matrix dimensions"
+    [[ $m1numcols -ne $m2numcols ]] && perror "invalid matrix cols dimensions"
 }
 
 $1 "${@:2}"
-
+removeDataFiles
 
 
