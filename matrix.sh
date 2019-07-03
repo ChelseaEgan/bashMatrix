@@ -9,7 +9,8 @@
 # Assignment	:
 ###############################################################################
 
-datafilepath="datafile$$"
+datafileonepath="datafileone$$"
+datafiletwopath="datafiletwo$$"
 
 function perror(){
   # NAME
@@ -53,24 +54,35 @@ checkArgCount() {
 
 copyInputToTempFile() {
     if [[ $1 = 0 ]]; then
-	cat > "$datafilepath"
-    elif [[ $1 = 1 ]]; then
-	cat "$2" > "$datafilepath"
+	cat > "$datafileonepath"
+    elif [[ $1 -gt 0 ]]; then
+	cat "$2" > "$datafileonepath"
+    fi
+    if [[ $1 -gt 1 ]]; then
+	cat "$3" > "$datafiletwopath"
     fi
 }
 
 checkFileIsValid() {
-    [[ ! -s $datafilepath ]] && perror "cannot read that file"
+    [[ ! -s $datafileonepath ]] && perror "cannot read $datafileonepath"
+    if [[ $1 -gt 1 ]]; then
+	[[ ! -s $datafiletwopath ]] && perror "cannot read $datafiletwopath"
+    fi
+}
+
+removeDataFiles() {
+    [[ -s $datafileonepath ]] && rm $datafileonepath
+    [[ -s $datafiletwopath ]] && rm $datafiletwopath
 }
 
 dims() {
-    datafilepath="datafile$$"
+    datafileonepath="datafile$$"
     checkArgCount 1 "$#"
     copyInputToTempFile "$#" "$1"
-    checkFileIsValid
+    checkFileIsValid "$#"
     
     numcols=0
-    read -r firstline<"$datafilepath"
+    read -r firstline<"$datafileonepath"
     for num in $firstline; do
 	numcols=$((numcols + 1))
     done
@@ -78,40 +90,40 @@ dims() {
     numrows=0
     while read -r row; do
 	numrows=$((numrows + 1))
-    done < "$datafilepath"
+    done < "$datafileonepath"
 
     echo "$numrows $numcols"
 
-    rm "$datafilepath"
+    removeDataFiles
 }
 
 # https://www.thelinuxrain.com/articles/transposing-rows-and-columns-3-methods
 transpose() {
     checkArgCount 1 "$#"
     copyInputToTempFile "$#" "$1"
-    checkFileIsValid
+    checkFileIsValid "$#"
 
-    read -r firstrow<"$datafilepath"
+    read -r firstrow<"$datafileonepath"
 
     index=1
     for num in $firstrow; do
-	cut -f${index} "$datafilepath" | paste -s
+	cut -f${index} "$datafileonepath" | paste -s
 	index=$((index + 1))
     done
-    rm "$datafilepath"
+    removeDataFiles
 }
 
 mean() {
     checkArgCount 1 "$#"
     copyInputToTempFile "$#" "$1"
-    checkFileIsValid
+    checkFileIsValid "$#"
 
-    read -r firstrow<"$datafilepath"
+    read -r firstrow<"$datafileonepath"
 
     index=1
     results=''
     for col in $firstrow; do
-	numbers=$(cut -f${index} "$datafilepath")
+	numbers=$(cut -f${index} "$datafileonepath")
 	mean=0
 	amount=0
 	for num in $numbers; do
@@ -120,10 +132,13 @@ mean() {
 	done
 	mean=$(((mean + (amount/2)*((mean>0)*2-1))/amount))
 	index=$((index + 1))
-	$results$mean	
+	results+="${mean}\t"	
     done
 
-    rm "$datafilepath"
+    results="${results::-2}"
+    echo -e "$results"
+
+    removeDataFiles
 }
 
 $1 "${@:2}"
