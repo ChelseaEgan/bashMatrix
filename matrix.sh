@@ -81,6 +81,9 @@ removeDataFiles() {
 }
 
 getDimensions() {    
+    numrows=0
+    numcols=0
+
     read -r firstline<"$1"
     for num in $firstline; do
 	numcols=$((numcols + 1))
@@ -161,8 +164,25 @@ add() {
     m2numrows=$numrows
     m2numcols=$numcols
 
-    [[ $m1numrows -ne $m2numrows ]] && perror "invalid matrix dimensions"
-    [[ $m1numcols -ne $m2numcols ]] && perror "invalid matrix cols dimensions"
+    if [ $m1numrows -ne $m2numrows ] || [ $m1numcols -ne $m2numcols ]; then
+	perror "invalid matrix dimensions for addition"
+    fi
+
+    results=''
+    lineindex=1
+    while read -r m1row; do
+	m2row=$(head -"$lineindex" "$datafiletwopath" | tail -1)
+	index=1
+	for m1num in $m1row; do
+	    m2num=$(echo "$m2row" | cut -f${index})
+	    sum=$((m1num + m2num))
+	    results+="${sum}\t"
+	    index=$((index + 1))
+	done
+	results="${results::-1}n"
+	lineindex=$((lineindex + 1))
+    done < $datafileonepath
+    echo -e "$results"
 }
 
 $1 "${@:2}"
