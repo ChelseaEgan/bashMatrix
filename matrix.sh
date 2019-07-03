@@ -45,6 +45,9 @@ function perror(){
       [ $# -gt 0 ] && echo "$*" >&2 || echo "(no error message specified)" >&2
     fi
   done
+
+  removeDataFiles
+
   exit $status
 }
 
@@ -71,8 +74,8 @@ checkFileIsValid() {
 }
 
 removeDataFiles() {
-    [[ -s $datafileonepath ]] && rm $datafileonepath
-    [[ -s $datafiletwopath ]] && rm $datafiletwopath
+    [[ -f $datafileonepath ]] && rm $datafileonepath
+    [[ -f $datafiletwopath ]] && rm $datafiletwopath
 }
 
 dims() {
