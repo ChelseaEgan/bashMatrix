@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 ###############################################################################
 # Script Name	:
@@ -80,18 +80,26 @@ removeDataFiles() {
     [[ -f $datafiletwopath ]] && rm $datafiletwopath
 }
 
-getDimensions() {    
+getNumRows() {
     numrows=0
+    
+    while read -r row; do
+	numrows=$((numrows + 1))
+    done < "$1"
+}
+
+getNumCols() {
     numcols=0
 
     read -r firstline<"$1"
     for num in $firstline; do
 	numcols=$((numcols + 1))
     done
-    
-    while read -r row; do
-	numrows=$((numrows + 1))
-    done < "$1"
+}
+
+getDimensions() {
+    getNumRows "$@"
+    getNumCols "$@"
 }
 
 dims() {
@@ -182,6 +190,50 @@ add() {
 	results="${results::-1}n"
 	lineindex=$((lineindex + 1))
     done < $datafileonepath
+    echo -e "$results"
+}
+
+multiply() {
+    checkArgCount 2 "$#"
+    copyInputToTempFile "$#" "$1" "$2"
+    checkFileIsValid "$#"
+
+    getNumRows $datafileonepath
+    m1numrows=$numrows
+
+    getNumCols $datafiletwopath
+    m2numcols=$numcols
+
+    [[ $m1numrows -ne $m2numcols ]] && perror "invalid matrix dimensions for multiplication"
+
+    results=''
+
+    while read -r m1row; do
+	colindex=1
+	while [ $colindex -le $m2numcols ]; do
+	    m2col=$(cut -f${colindex} "$datafiletwopath")
+	    numindex=1
+	    productsofnums=''
+	    for m2num in $m2col; do
+		m1num=$(echo "$m1row" | cut -f${numindex})
+		product=$((m1num * m2num))
+		productsofnums+="${product}\t"
+		numindex=$((numindex+1))
+	    done
+	    productsofnums="${productsofnums::-1}n"
+
+	    sum=0
+	    for i in $productsofnums; do
+		sum=$((sum + i))
+	    done
+
+	    results+="${sum}\t"
+	    colindex=$((colindex + 1))
+	done
+
+	results="${results::-1}n"
+    done < $datafileonepath
+
     echo -e "$results"
 }
 
