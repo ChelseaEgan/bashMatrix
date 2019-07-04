@@ -96,7 +96,7 @@ getDimensions() {
 }
 
 dims() {
-    checkArgCount 1 "$#"
+    [[ $# -gt 1 ]] && perror "invalid number of arguments"
     copyInputToTempFile "$#" "$1"
     checkFileIsValid "$#"
     
@@ -107,7 +107,7 @@ dims() {
 
 # https://www.thelinuxrain.com/articles/transposing-rows-and-columns-3-methods
 transpose() {
-    checkArgCount 1 "$#"
+    [[ $# -gt 1 ]] && perror "invalid number of arguments"
     copyInputToTempFile "$#" "$1"
     checkFileIsValid "$#"
 
@@ -121,7 +121,7 @@ transpose() {
 }
 
 mean() {
-    checkArgCount 1 "$#"
+    [[ $# -gt 1 ]] && perror "invalid number of arguments"
     copyInputToTempFile "$#" "$1"
     checkFileIsValid "$#"
 
@@ -148,7 +148,7 @@ mean() {
 }
 
 add() {
-    checkArgCount 2 "$#"
+    [[ $# -ne 2 ]] && perror "invalid number of arguments"
     copyInputToTempFile "$#" "$1" "$2"
     checkFileIsValid "$#"
     
@@ -183,11 +183,12 @@ add() {
 	results="${results::-1}n"
 	lineindex=$((lineindex + 1))
     done < $datafileonepath
+    results="${results::-2}"
     echo -e "$results"
 }
 
 multiply() {
-    checkArgCount 2 "$#"
+    [[ $# -ne 2 ]] && perror "invalid number of arguments"
     copyInputToTempFile "$#" "$1" "$2"
     checkFileIsValid "$#"
 
@@ -199,7 +200,7 @@ multiply() {
     m2numcols=$numcols
     m2numrows=$numrows
 
-    if [[ $m1numrows -ne $m2numcols && $m1numcols -ne $m2numrows ]]; then
+    if [ $m1numcols -ne $m2numrows ]; then
 	perror "invalid matrix dimensions for multiplication"
     fi
 
@@ -227,11 +228,10 @@ multiply() {
 
 	results="${results::-1}n"
     done < $datafileonepath
-
+    results="${results::-2}"
     echo -e "$results"
 }
 
-$1 "${@:2}"
+$1 "${@:2}" || exit 1
 removeDataFiles
-
-
+exit 0
