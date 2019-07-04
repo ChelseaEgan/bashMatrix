@@ -1,12 +1,12 @@
 #!/bin/bash
 
 ###############################################################################
-# Script Name	:
-# Description	:
-# Args		:
-# Author	: Chelsea Egan
+# Script Name	: matrix.sh
+# Description	: Performs various operations on provided matrices.
+# Args		: Matrix/matrices via file or stdin
+# Author	: Chelsea Egan (eganch@oregonstate.edu)
 # Class		: CS 344-400
-# Assignment	:
+# Assignment	: Program 1
 ###############################################################################
 
 datafileonepath="datafileone$$"
@@ -23,7 +23,7 @@ function perror(){
   #   Echoes the STRING(s) to standard error with a stack trace for debugging.
   # AUTHOR
   #   Written by Ryan Gambord (gambordr@oregonstate.edu)
-  #   Adapted by Chelsea Egan (eganch@oregonstate.edu)
+  #   Slight adaptation by Chelsea Egan (eganch@oregonstate.edu)
 
   status=1 # Set an error status
   echo -e "\e[36mTraceback (most recent call last):\e[0m" >&2
@@ -80,26 +80,19 @@ removeDataFiles() {
     [[ -f $datafiletwopath ]] && rm $datafiletwopath
 }
 
-getNumRows() {
+getDimensions() {
     numrows=0
     
     while read -r row; do
 	numrows=$((numrows + 1))
     done < "$1"
-}
 
-getNumCols() {
     numcols=0
 
     read -r firstline<"$1"
     for num in $firstline; do
 	numcols=$((numcols + 1))
     done
-}
-
-getDimensions() {
-    getNumRows "$@"
-    getNumCols "$@"
 }
 
 dims() {
@@ -206,7 +199,7 @@ multiply() {
     m2numcols=$numcols
     m2numrows=$numrows
 
-    if [ $m1numrows -ne $m2numcols ] -a [ $m1numcols -ne $m2numrows ]; then
+    if [[ $m1numrows -ne $m2numcols && $m1numcols -ne $m2numrows ]]; then
 	perror "invalid matrix dimensions for multiplication"
     fi
 
