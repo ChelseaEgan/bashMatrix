@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 ###############################################################################
 # Script Name	:
@@ -198,13 +198,17 @@ multiply() {
     copyInputToTempFile "$#" "$1" "$2"
     checkFileIsValid "$#"
 
-    getNumRows $datafileonepath
+    getDimensions $datafileonepath
     m1numrows=$numrows
+    m1numcols=$numcols
 
-    getNumCols $datafiletwopath
+    getDimensions $datafiletwopath
     m2numcols=$numcols
+    m2numrows=$numrows
 
-    [[ $m1numrows -ne $m2numcols ]] && perror "invalid matrix dimensions for multiplication"
+    if [ $m1numrows -ne $m2numcols ] -a [ $m1numcols -ne $m2numrows ]; then
+	perror "invalid matrix dimensions for multiplication"
+    fi
 
     results=''
 
@@ -217,16 +221,13 @@ multiply() {
 	    for m2num in $m2col; do
 		m1num=$(echo "$m1row" | cut -f${numindex})
 		product=$((m1num * m2num))
-		productsofnums+="${product}\t"
+		productsofnums+="${product} "
 		numindex=$((numindex+1))
 	    done
-	    productsofnums="${productsofnums::-1}n"
-
 	    sum=0
 	    for i in $productsofnums; do
 		sum=$((sum + i))
 	    done
-
 	    results+="${sum}\t"
 	    colindex=$((colindex + 1))
 	done
