@@ -1,0 +1,325 @@
+#!/bin/bash
+
+###############################################################################
+# Script Name	: matrix.sh
+# Description	: Performs various operations on provided matrices.
+#		    dims - prints dimensions of the matrix
+#		    transpose - prints the transpose of the matrix
+#		    mean - prints a row vector mean of the matrix
+#		    add - performs matrix addition on two matrices
+#		    multiply - performs matrix multiplication on two matrices
+# Args		: Matrix/matrices via file or stdin
+# Author	: Chelsea Egan (eganch@oregonstate.edu)
+# Class		: CS 344-400
+# Assignment	: Program 1
+###############################################################################
+
+# Variables for functions to "return"
+datafileonepath="datafileone$$"
+datafiletwopath="datafiletwo$$"
+numcols=0
+numrows=0
+
+# NAME
+#   perror
+# ARGS
+#   STRING error message
+# DESCRIPTION
+#   Echoes the STRING(s) to standard error with a stack trace for debugging.
+# AUTHOR
+#   Written by Ryan Gambord (gambordr@oregonstate.edu)
+#   Slight adaptation by Chelsea Egan (eganch@oregonstate.edu)
+function perror(){
+  status=1 # Set an error status
+  echo -e "\e[36mTraceback (most recent call last):\e[0m" >&2
+  i=${#BASH_LINENO[@]} # Get number of items in stack trace
+
+  # This section prints a stack trace of the current execution stack
+  while
+    [ $i -gt 0 ] # Iterate to the top of the stack
+  do
+    until # Loop until we get to the bottom of caller stack (this is safer than offsetting $i)
+      ((i--))
+      info=("$(caller $i)") # Get caller info
+    do :; done # Do nothing
+
+    echo "  File \"${info[2]}\", line ${info[0]}, in ${info[1]}()" >&2 # Print caller info
+    if [ $i -ne 0 ] # Check if we're at the top of the stack (perror call is at top)
+    then
+      echo "    ""$(head "${info[2]}" -n "${info[0]}" | tail -n 1)" >&2 # Print trace if not at top
+    else
+      echo -en "\e[31mERROR\e[0m: " >&2 # Print error message if at top
+      [ $# -gt 0 ] && echo "$*" >&2 || echo "(no error message specified)" >&2
+    fi
+  done
+
+  removedatafiles
+
+  exit $status
+}
+
+# NAME
+#   copyinputtotempfile 
+# ARGS
+#   INT number of args from command line
+#   STRING? optional first file name
+#   STRING? optional second file name
+# DESCRIPTION
+#   If no file(s) provided, assumes the matrix was fed in and cats it to a file
+#   If file(s) are provided, stores the input into files used by the program
+copyinputtotempfile() {
+    if [[ $1 = 0 ]]; then
+	cat > "$datafileonepath"
+    elif [[ $1 -gt 0 ]]; then
+	cat "$2" > "$datafileonepath"
+    fi
+    if [[ $1 -gt 1 ]]; then
+	cat "$3" > "$datafiletwopath"
+    fi
+}
+
+# NAME
+#   checkfileisvalid 
+# ARGS
+#   INT number of args from command line
+# DESCRIPTION
+#   Checks if each file is not zero size to determine if they are valid
+#   If invalid, calls the error function
+checkfileisvalid() {
+    [[ ! -s $datafileonepath ]] && perror "cannot read $datafileonepath"
+    if [[ $1 -gt 1 ]]; then
+	[[ ! -s $datafiletwopath ]] && perror "cannot read $datafiletwopath"
+    fi
+}
+
+# NAME
+#   removedatafiles 
+# ARGS
+#   N/A
+# DESCRIPTION
+#   If temp files have been created, it removes them
+removedatafiles() {
+    [[ -f $datafileonepath ]] && rm $datafileonepath
+    [[ -f $datafiletwopath ]] && rm $datafiletwopath
+}
+
+
+# NAME
+#   getdimensions 
+# ARGS
+#   STRING filename
+# DESCRIPTION
+#   Determines the number of rows and columns in a matrix
+#   Stores the results in global variables
+getdimensions() {
+    # Resets the global variable
+    numrows=0
+    # Counts each row in the file
+    while read -r row; do
+	numrows=$((numrows + 1))
+    done < "$1"
+
+    # Resets the global variable
+    numcols=0
+    # Gets each number in the first row and counts it as a column
+    read -r firstline<"$1"
+    for num in $firstline; do
+	numcols=$((numcols + 1))
+    done
+}
+
+# NAME
+#   dims 
+# ARGS
+#   STRING filename
+# DESCRIPTION
+#   Returns the number of rows and columns in the provided matrix
+dims() {
+    # Expecting either input from stdin or one file
+    [[ $# -gt 1 ]] && perror "invalid number of arguments"
+    # Get the matrix
+    copyinputtotempfile "$#" "$1"
+    # Make sure received data
+    checkfileisvalid "$#"
+    
+    # Sets the rows and columns global variables
+    getdimensions $datafileonepath
+
+    echo "$numrows $numcols"
+}
+
+
+# NAME
+#   transpose 
+# ARGS
+#   STRING filename
+# DESCRIPTION
+#   Reflects the elements of the matrix along the main diagonal
+# SOURCE
+#   https://www.thelinuxrain.com/articles/transposing-rows-and-columns-3-methods
+transpose() {
+    # Expecting either input from stdin or one file
+    [[ $# -gt 1 ]] && perror "invalid number of arguments"
+    # Get the matrix
+    copyinputtotempfile "$#" "$1"
+    # Make sure received data
+    checkfileisvalid "$#"
+
+    # Get the first row of the matrix
+    read -r firstrow<"$datafileonepath"
+
+    index=1
+    # For each number in the row, cut that column, merge the lines,
+    # and paste to stdout
+    for num in $firstrow; do
+	cut -f${index} "$datafileonepath" | paste -s
+	index=$((index + 1))
+    done
+}
+
+# NAME
+#   mean 
+# ARGS
+#   STRING filename
+# DESCRIPTION
+#   Takes a MxN matrix and returns a 1xN row vector, where each element
+#   is the mean of the corresponding column
+mean() {
+    # Expecting either input from stdin or one file
+    [[ $# -gt 1 ]] && perror "invalid number of arguments"
+    # Get the matrix
+    copyinputtotempfile "$#" "$1"
+    # Make sure received data
+    checkfileisvalid "$#"
+
+    # Get the first row the matrix
+    read -r firstrow<"$datafileonepath"
+
+    index=1
+    results=''
+
+    # Each number in the row represents a column
+    for col in $firstrow; do
+	# Get that column of numbers
+	numbers=$(cut -f${index} "$datafileonepath")
+	
+	mean=0
+	amount=0
+
+	# Get the sum of all numbers and the amount of numbers in col
+	for num in $numbers; do
+	    mean=$((mean + num))
+	    amount=$((amount + 1))
+	done
+	
+	# Calculate the mean, rounded to the nearest integer
+	mean=$(((mean + (amount/2)*((mean>0)*2-1))/amount))
+
+	# Move to the next column
+	index=$((index + 1))
+
+	# Store the mean of this column
+	results+="${mean}\t"	
+    done
+
+    # Return all calculated means without the final tab
+    results="${results::-2}"
+    echo -e "$results"
+
+}
+
+# NAME
+#   add 
+# ARGS
+#   STRING filename
+#   STRING filename
+# DESCRIPTION
+#   Takes two matrices and performs addition
+add() {
+    [[ $# -ne 2 ]] && perror "invalid number of arguments"
+    copyinputtotempfile "$#" "$1" "$2"
+    checkfileisvalid "$#"
+    
+    m1numrows=0
+    m1numcols=0
+    m2numrows=0
+    m2numcols=0
+    
+    getdimensions $datafileonepath
+    m1numrows=$numrows
+    m1numcols=$numcols
+
+    getdimensions $datafiletwopath
+    m2numrows=$numrows
+    m2numcols=$numcols
+
+    if [ $m1numrows -ne $m2numrows ] || [ $m1numcols -ne $m2numcols ]; then
+	perror "invalid matrix dimensions for addition"
+    fi
+
+    results=''
+    lineindex=1
+    while read -r m1row; do
+	m2row=$(head -"$lineindex" "$datafiletwopath" | tail -1)
+	index=1
+	for m1num in $m1row; do
+	    m2num=$(echo "$m2row" | cut -f${index})
+	    sum=$((m1num + m2num))
+	    results+="${sum}\t"
+	    index=$((index + 1))
+	done
+	results="${results::-1}n"
+	lineindex=$((lineindex + 1))
+    done < $datafileonepath
+    results="${results::-2}"
+    echo -e "$results"
+}
+
+multiply() {
+    [[ $# -ne 2 ]] && perror "invalid number of arguments"
+    copyinputtotempfile "$#" "$1" "$2"
+    checkfileisvalid "$#"
+
+    getdimensions $datafileonepath
+    m1numrows=$numrows
+    m1numcols=$numcols
+
+    getdimensions $datafiletwopath
+    m2numcols=$numcols
+    m2numrows=$numrows
+
+    if [ $m1numcols -ne $m2numrows ]; then
+	perror "invalid matrix dimensions for multiplication"
+    fi
+
+    results=''
+
+    while read -r m1row; do
+	colindex=1
+	while [ $colindex -le $m2numcols ]; do
+	    m2col=$(cut -f${colindex} "$datafiletwopath")
+	    numindex=1
+	    productsofnums=''
+	    for m2num in $m2col; do
+		m1num=$(echo "$m1row" | cut -f${numindex})
+		product=$((m1num * m2num))
+		productsofnums+="${product} "
+		numindex=$((numindex+1))
+	    done
+	    sum=0
+	    for i in $productsofnums; do
+		sum=$((sum + i))
+	    done
+	    results+="${sum}\t"
+	    colindex=$((colindex + 1))
+	done
+
+	results="${results::-1}n"
+    done < $datafileonepath
+    results="${results::-2}"
+    echo -e "$results"
+}
+
+$1 "${@:2}" || exit 1
+removedatafiles
+exit 0
