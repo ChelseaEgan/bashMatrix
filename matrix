@@ -16,7 +16,9 @@
 
 trap "removedatafiles; echo 'CTRL-C caught... exiting...'; exit 1" SIGINT
 
-# Variables for functions to "return"
+# Variables for functions to "return" including two filenames and the
+# number of columns and rows in a matrix. Stored globally as they're used
+# across a few functions
 datafileonepath="datafileone$$"
 datafiletwopath="datafiletwo$$"
 numcols=0
@@ -70,8 +72,10 @@ function perror(){
 #   If no file(s) provided, assumes the matrix was fed in and cats it to a file
 #   If file(s) are provided, stores the input into files used by the program
 copyinputtotempfile() {
+    # No arguments means the user should have provided data via stdin
     if [[ $1 = 0 ]]; then
 	cat > "$datafileonepath"
+    # Each argument represents a file that should be stored for use
     elif [[ $1 -gt 0 ]]; then
 	cat "$2" > "$datafileonepath"
     fi
@@ -88,6 +92,8 @@ copyinputtotempfile() {
 #   Checks if each file is not zero size to determine if they are valid
 #   If invalid, calls the error function
 checkfileisvalid() {
+    # Checks each file to see if filesize is greater than 0 bytes
+    # If not, sends an error and exits
     [[ ! -s $datafileonepath ]] && perror "cannot read $datafileonepath"
     if [[ $1 -gt 1 ]]; then
 	[[ ! -s $datafiletwopath ]] && perror "cannot read $datafiletwopath"
@@ -101,6 +107,8 @@ checkfileisvalid() {
 # DESCRIPTION
 #   If temp files have been created, it removes them
 removedatafiles() {
+    # Checks if each variable holds a file
+    # If so, deletes it
     [[ -f $datafileonepath ]] && rm "$datafileonepath"
     [[ -f $datafiletwopath ]] && rm "$datafiletwopath"
 }
@@ -113,15 +121,17 @@ removedatafiles() {
 #   Determines the number of rows and columns in a matrix
 #   Stores the results in global variables
 getdimensions() {
-    # Resets the global variable
+    # Resets the global variable in case of two matrices
     numrows=0
+
     # Counts each row in the file
     while read -r row; do
 	numrows=$((numrows + 1))
     done < "$1"
 
-    # Resets the global variable
+    # Resets the global variable in case of two matrices
     numcols=0
+
     # Gets each number in the first row and counts it as a column
     read -r firstline<"$1"
     for num in $firstline; do
@@ -138,14 +148,17 @@ getdimensions() {
 dims() {
     # Expecting either input from stdin or one file
     [[ $# -gt 1 ]] && perror "invalid number of arguments"
+    
     # Get the matrix
     copyinputtotempfile "$#" "$1"
+    
     # Make sure received data
     checkfileisvalid "$#"
     
     # Sets the rows and columns global variables
     getdimensions "$datafileonepath"
 
+    # Prints the global variables as the dimensions
     echo "$numrows $numcols"
 }
 
@@ -161,17 +174,22 @@ dims() {
 transpose() {
     # Expecting either input from stdin or one file
     [[ $# -gt 1 ]] && perror "invalid number of arguments"
+    
     # Get the matrix
     copyinputtotempfile "$#" "$1"
+    
     # Make sure received data
     checkfileisvalid "$#"
 
     # Get the first row of the matrix
+    # Each number in the row will indicate a column of the matrix
     read -r firstrow<"$datafileonepath"
 
     index=1
+
     # For each number in the row, cut that column, merge the lines,
     # and paste to stdout
+    # This will effectively transpose the column into a row
     for num in $firstrow; do
 	cut -f${index} "$datafileonepath" | paste -s
 	index=$((index + 1))
@@ -188,18 +206,21 @@ transpose() {
 mean() {
     # Expecting either input from stdin or one file
     [[ $# -gt 1 ]] && perror "invalid number of arguments"
+    
     # Get the matrix
     copyinputtotempfile "$#" "$1"
+    
     # Make sure received data
     checkfileisvalid "$#"
 
-    # Get the first row the matrix
+    # Get the first row of the matrix
+    # Each number in the row will indicate a column of the matrix
     read -r firstrow<"$datafileonepath"
 
     index=1
     results=''
 
-    # Each number in the row represents a column
+    # This loop will get the mean of each column in the matrix
     for col in $firstrow; do
 	# Get that column of numbers
 	numbers=$(cut -f${index} "$datafileonepath")
@@ -226,7 +247,6 @@ mean() {
     # Return all calculated means without the final tab
     results="${results::-2}"
     echo -e "$results"
-
 }
 
 # NAME
@@ -235,12 +255,14 @@ mean() {
 #   STRING filename
 #   STRING filename
 # DESCRIPTION
-#   Takes two matrices and performs addition
+#   Takes two matrices and performs addition on them
 add() {
     # Expecting two filenames as arguments
     [[ $# -ne 2 ]] && perror "invalid number of arguments"
+    
     # Get both matrices
     copyinputtotempfile "$#" "$1" "$2"
+    
     # Make sure both files had data
     checkfileisvalid "$#"
     
@@ -261,15 +283,16 @@ add() {
     results=''
     lineindex=1
 
-    # Get each row from the first matrix
+    # This loop will grab each row from the first matrix
     while read -r m1row; do
-	# Get each row from the second matrix
+	# Each loop will also get a row from the second matrix
 	m2row=$(head -"$lineindex" "$datafiletwopath" | tail -1)
 	index=1
 
 	# Get each number in the row for both matrices,
 	# add them together, and store in the results var
 	for m1num in $m1row; do
+	    # Grabs each number from the second matrix row
 	    m2num=$(echo "$m2row" | cut -f${index})
 	    sum=$((m1num + m2num))
 	    results+="${sum}\t"
@@ -296,8 +319,10 @@ add() {
 multiply() {
     # Expecting two filenames as arguments
     [[ $# -ne 2 ]] && perror "invalid number of arguments"
+    
     # Get both matrices
     copyinputtotempfile "$#" "$1" "$2"
+    
     # Make sure both matrices have data
     checkfileisvalid "$#"
 
@@ -362,6 +387,7 @@ multiply() {
 # Otherwise, exits with an error
 $1 "${@:2}" || exit 1
 
+# Removes the temporary files used by the program
 removedatafiles
 
 # Exit without an error
