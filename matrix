@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 ###############################################################################
 # Script Name	: matrix.sh
@@ -53,6 +53,8 @@ function perror(){
     fi
   done
 
+  removedatafiles
+
   exit $status
 }
 
@@ -69,10 +71,10 @@ copyinputtotempfile() {
     if [[ $1 = 0 ]]; then
 	cat > "$datafileonepath"
     elif [[ $1 -gt 0 ]]; then
-	datafileonepath=$2
+	cat "$2" > "$datafileonepath"
     fi
     if [[ $1 -gt 1 ]]; then
-	datafiletwopath=$3
+	cat "$3" > "$datafiletwopath"
     fi
 }
 
@@ -88,6 +90,17 @@ checkfileisvalid() {
     if [[ $1 -gt 1 ]]; then
 	[[ ! -s $datafiletwopath ]] && perror "cannot read $datafiletwopath"
     fi
+}
+
+# NAME
+#   removedatafiles 
+# ARGS
+#   N/A
+# DESCRIPTION
+#   If temp files have been created, it removes them
+removedatafiles() {
+    [[ -f $datafileonepath ]] && rm $datafileonepath
+    [[ -f $datafiletwopath ]] && rm $datafiletwopath
 }
 
 # NAME
@@ -129,7 +142,7 @@ dims() {
     checkfileisvalid "$#"
     
     # Sets the rows and columns global variables
-    getdimensions "$datafileonepath"
+    getdimensions $datafileonepath
 
     echo "$numrows $numcols"
 }
@@ -230,11 +243,11 @@ add() {
     checkfileisvalid "$#"
     
     # Get the dimensions of both matrices
-    getdimensions "$datafileonepath"
+    getdimensions $datafileonepath
     m1numrows=$numrows
     m1numcols=$numcols
 
-    getdimensions "$datafiletwopath"
+    getdimensions $datafiletwopath
     m2numrows=$numrows
     m2numcols=$numcols
 
@@ -264,7 +277,7 @@ add() {
 	# Change the last tab to a newline
 	results="${results::-1}n"
 	lineindex=$((lineindex + 1))
-    done < "$datafileonepath"
+    done < $datafileonepath
 
     # Remove the last newline and print
     results="${results::-2}"
@@ -287,11 +300,11 @@ multiply() {
     checkfileisvalid "$#"
 
     # Get the dimensions of both matrices
-    getdimensions "$datafileonepath"
+    getdimensions $datafileonepath
     m1numrows=$numrows
     m1numcols=$numcols
 
-    getdimensions "$datafiletwopath"
+    getdimensions $datafiletwopath
     m2numcols=$numcols
     m2numrows=$numrows
 
@@ -336,7 +349,7 @@ multiply() {
 
 	# Replace the last tab with a newline
 	results="${results::-1}n"
-    done < "$datafileonepath"
+    done < $datafileonepath
 
     # Remove the last newline and print
     results="${results::-2}"
@@ -346,6 +359,8 @@ multiply() {
 # Calls the requested command if valid
 # Otherwise, exits with an error
 $1 "${@:2}" || exit 1
+
+removedatafiles
 
 # Exit without an error
 exit 0
