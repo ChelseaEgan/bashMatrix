@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 ###############################################################################
 # Script Name	: matrix.sh
@@ -53,8 +53,6 @@ function perror(){
     fi
   done
 
-  removedatafiles
-
   exit $status
 }
 
@@ -71,10 +69,10 @@ copyinputtotempfile() {
     if [[ $1 = 0 ]]; then
 	cat > "$datafileonepath"
     elif [[ $1 -gt 0 ]]; then
-	cat "$2" > "$datafileonepath"
+	datafileonepath=$2
     fi
     if [[ $1 -gt 1 ]]; then
-	cat "$3" > "$datafiletwopath"
+	datafiletwopath=$3
     fi
 }
 
@@ -91,18 +89,6 @@ checkfileisvalid() {
 	[[ ! -s $datafiletwopath ]] && perror "cannot read $datafiletwopath"
     fi
 }
-
-# NAME
-#   removedatafiles 
-# ARGS
-#   N/A
-# DESCRIPTION
-#   If temp files have been created, it removes them
-removedatafiles() {
-    [[ -f $datafileonepath ]] && rm $datafileonepath
-    [[ -f $datafiletwopath ]] && rm $datafiletwopath
-}
-
 
 # NAME
 #   getdimensions 
@@ -143,7 +129,7 @@ dims() {
     checkfileisvalid "$#"
     
     # Sets the rows and columns global variables
-    getdimensions $datafileonepath
+    getdimensions "$datafileonepath"
 
     echo "$numrows $numcols"
 }
@@ -236,70 +222,100 @@ mean() {
 # DESCRIPTION
 #   Takes two matrices and performs addition
 add() {
+    # Expecting two filenames as arguments
     [[ $# -ne 2 ]] && perror "invalid number of arguments"
+    # Get both matrices
     copyinputtotempfile "$#" "$1" "$2"
+    # Make sure both files had data
     checkfileisvalid "$#"
     
-    m1numrows=0
-    m1numcols=0
-    m2numrows=0
-    m2numcols=0
-    
-    getdimensions $datafileonepath
+    # Get the dimensions of both matrices
+    getdimensions "$datafileonepath"
     m1numrows=$numrows
     m1numcols=$numcols
 
-    getdimensions $datafiletwopath
+    getdimensions "$datafiletwopath"
     m2numrows=$numrows
     m2numcols=$numcols
 
+    # Matrices must have the same number of rows and columns
     if [ $m1numrows -ne $m2numrows ] || [ $m1numcols -ne $m2numcols ]; then
 	perror "invalid matrix dimensions for addition"
     fi
 
     results=''
     lineindex=1
+
+    # Get each row from the first matrix
     while read -r m1row; do
+	# Get each row from the second matrix
 	m2row=$(head -"$lineindex" "$datafiletwopath" | tail -1)
 	index=1
+
+	# Get each number in the row for both matrices,
+	# add them together, and store in the results var
 	for m1num in $m1row; do
 	    m2num=$(echo "$m2row" | cut -f${index})
 	    sum=$((m1num + m2num))
 	    results+="${sum}\t"
 	    index=$((index + 1))
 	done
+
+	# Change the last tab to a newline
 	results="${results::-1}n"
 	lineindex=$((lineindex + 1))
-    done < $datafileonepath
+    done < "$datafileonepath"
+
+    # Remove the last newline and print
     results="${results::-2}"
     echo -e "$results"
 }
 
+# NAME
+#   multiply 
+# ARGS
+#   STRING filename
+#   STRING filename
+# DESCRIPTION
+#   Gets two matrices and performs matrix multiplication
 multiply() {
+    # Expecting two filenames as arguments
     [[ $# -ne 2 ]] && perror "invalid number of arguments"
+    # Get both matrices
     copyinputtotempfile "$#" "$1" "$2"
+    # Make sure both matrices have data
     checkfileisvalid "$#"
 
-    getdimensions $datafileonepath
+    # Get the dimensions of both matrices
+    getdimensions "$datafileonepath"
     m1numrows=$numrows
     m1numcols=$numcols
 
-    getdimensions $datafiletwopath
+    getdimensions "$datafiletwopath"
     m2numcols=$numcols
     m2numrows=$numrows
 
+    # The first matrix must have the same number of columns
+    # as the number of rows in the second matrix
     if [ $m1numcols -ne $m2numrows ]; then
 	perror "invalid matrix dimensions for multiplication"
     fi
 
     results=''
 
+    # Get each row of the first matrix
     while read -r m1row; do
 	colindex=1
+
+	# Get each column of the second matrix
 	while [ $colindex -le $m2numcols ]; do
 	    m2col=$(cut -f${colindex} "$datafiletwopath")
 	    numindex=1
 	    productsofnums=''
+
+	    # Multiply each number from the second matrix's column
+	    # by the number from the first matrix's row and store
+	    # the result
 	    for m2num in $m2col; do
 		m1num=$(echo "$m1row" | cut -f${numindex})
 		product=$((m1num * m2num))
@@ -307,19 +323,29 @@ multiply() {
 		numindex=$((numindex+1))
 	    done
 	    sum=0
+
+	    # Add all of the products
 	    for i in $productsofnums; do
 		sum=$((sum + i))
 	    done
+
+	    # Store the sum
 	    results+="${sum}\t"
 	    colindex=$((colindex + 1))
 	done
 
+	# Replace the last tab with a newline
 	results="${results::-1}n"
-    done < $datafileonepath
+    done < "$datafileonepath"
+
+    # Remove the last newline and print
     results="${results::-2}"
     echo -e "$results"
 }
 
+# Calls the requested command if valid
+# Otherwise, exits with an error
 $1 "${@:2}" || exit 1
-removedatafiles
+
+# Exit without an error
 exit 0
