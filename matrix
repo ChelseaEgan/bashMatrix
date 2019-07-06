@@ -14,6 +14,8 @@
 # Assignment	: Program 1
 ###############################################################################
 
+trap "removedatafiles; echo 'CTRL-C caught... exiting...'; exit 1" SIGINT
+
 # Variables for functions to "return"
 datafileonepath="datafileone$$"
 datafiletwopath="datafiletwo$$"
@@ -99,8 +101,8 @@ checkfileisvalid() {
 # DESCRIPTION
 #   If temp files have been created, it removes them
 removedatafiles() {
-    [[ -f $datafileonepath ]] && rm $datafileonepath
-    [[ -f $datafiletwopath ]] && rm $datafiletwopath
+    [[ -f $datafileonepath ]] && rm "$datafileonepath"
+    [[ -f $datafiletwopath ]] && rm "$datafiletwopath"
 }
 
 # NAME
@@ -142,7 +144,7 @@ dims() {
     checkfileisvalid "$#"
     
     # Sets the rows and columns global variables
-    getdimensions $datafileonepath
+    getdimensions "$datafileonepath"
 
     echo "$numrows $numcols"
 }
@@ -243,11 +245,11 @@ add() {
     checkfileisvalid "$#"
     
     # Get the dimensions of both matrices
-    getdimensions $datafileonepath
+    getdimensions "$datafileonepath"
     m1numrows=$numrows
     m1numcols=$numcols
 
-    getdimensions $datafiletwopath
+    getdimensions "$datafiletwopath"
     m2numrows=$numrows
     m2numcols=$numcols
 
@@ -277,7 +279,7 @@ add() {
 	# Change the last tab to a newline
 	results="${results::-1}n"
 	lineindex=$((lineindex + 1))
-    done < $datafileonepath
+    done < "$datafileonepath"
 
     # Remove the last newline and print
     results="${results::-2}"
@@ -300,11 +302,11 @@ multiply() {
     checkfileisvalid "$#"
 
     # Get the dimensions of both matrices
-    getdimensions $datafileonepath
+    getdimensions "$datafileonepath"
     m1numrows=$numrows
     m1numcols=$numcols
 
-    getdimensions $datafiletwopath
+    getdimensions "$datafiletwopath"
     m2numcols=$numcols
     m2numrows=$numrows
 
@@ -349,7 +351,7 @@ multiply() {
 
 	# Replace the last tab with a newline
 	results="${results::-1}n"
-    done < $datafileonepath
+    done < "$datafileonepath"
 
     # Remove the last newline and print
     results="${results::-2}"
